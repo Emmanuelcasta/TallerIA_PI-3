@@ -4,32 +4,53 @@ import os
 from dotenv import load_dotenv
 from .models import Movie
 
-def recommend_movie(request):
-    recommended = None
-    similarity = None
-    prompt = ""
-    if request.method == "POST":
-        prompt = request.POST.get("prompt", "")
-        if prompt:
-            load_dotenv(os.path.join(os.path.dirname(__file__), '../../openAI.env'))
-            client = OpenAI(api_key=os.environ.get('openai_apikey'))
-            response = client.embeddings.create(
-                input=[prompt],
-                model="text-embedding-3-small"
-            )
-            prompt_emb = np.array(response.data[0].embedding, dtype=np.float32)
-            max_similarity = -1
-            for movie in Movie.objects.all():
-                if movie.emb:
-                    movie_emb = np.frombuffer(movie.emb, dtype=np.float32)
-                    sim = np.dot(prompt_emb, movie_emb) / (np.linalg.norm(prompt_emb) * np.linalg.norm(movie_emb))
-                    if sim > max_similarity:
-                        max_similarity = sim
-                        recommended = movie
-                        similarity = sim
+def recommend(request):
+    recommended_movie = None
+    prompt = request.GET.get('prompt', '').lower()
+    
+    if prompt:
+        # Lista de géneros comunes para buscar en el prompt
+        genres = ['acción', 'aventura', 'comedia', 'drama', 'terror', 'sci-fi', 
+                 'romance', 'fantasía', 'animación', 'documental', 'guerra']
+        
+        # Detectar si hay un año en el prompt (4 dígitos)
+        import re
+        year_match = re.search(r'\b\d{4}\b', prompt)
+        year = year_match.group(0) if year_match else None
+        
+        # Detectar géneros mencionados en el prompt
+        mentioned_genres = [genre for genre in genres if genre in prompt]
+        
+        # Construir la consulta base
+        query = Movie.objects.all()
+        
+        # Filtrar por año si se especificó
+        if year:
+            query = query.filter(year=year)
+            
+        # Filtrar por género si se mencionó alguno
+        if mentioned_genres:
+            for genre in mentioned_genres:
+                query = query.filter(genre__icontains=genre)
+        
+        # Buscar en título y descripción
+        movies = query.filter(description__icontains=prompt) | \
+                query.filter(title__icontains=prompt) | \
+                query.filter(genre__icontains=prompt)
+        
+        if movies.exists():
+            # Tomamos la primera película que coincida
+            recommended_movie = movies.first()
+        else:
+            # Si no encontramos nada específico, buscamos de forma más general
+            movies = Movie.objects.filter(description__icontains=prompt) | \
+                    Movie.objects.filter(title__icontains=prompt) | \
+                    Movie.objects.filter(genre__icontains=prompt)
+            if movies.exists():
+                recommended_movie = movies.first()
+    
     return render(request, "recommend.html", {
-        "recommended": recommended,
-        "similarity": similarity,
+        "recommended_movie": recommended_movie,
         "prompt": prompt
     })
 from django.shortcuts import render

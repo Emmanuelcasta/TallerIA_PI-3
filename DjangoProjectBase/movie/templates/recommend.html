@@ -1,18 +1,47 @@
-<h2>Recomendador de Películas</h2>
-<form method="post">
-    {% csrf_token %}
-    <input type="text" name="prompt" placeholder="Describe tu película ideal" value="{{ prompt }}" style="width:300px;">
-    <button type="submit">Recomendar</button>
-</form>
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Recomendación de Películas</h1>
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <form method="GET" action="{% url 'recommend' %}">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" name="prompt" placeholder="Ejemplo: Película de la segunda guerra mundial" value="{{ request.GET.prompt }}">
+                    <button class="btn btn-primary" type="submit">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-{% if recommended %}
-    <h3>Película recomendada:</h3>
-    <p><strong>{{ recommended.title }}</strong></p>
-    <p>Similitud: {{ similarity|floatformat:4 }}</p>
-    <p>{{ recommended.description }}</p>
-    {% if recommended.image %}
-        <img src="{{ recommended.image.url }}" width="200">
+    {% if recommended_movie %}
+    <div class="row mt-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="{{ recommended_movie.image.url }}" class="img-fluid rounded-start" alt="{{ recommended_movie.title }}">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ recommended_movie.title }}</h5>
+                            {% if recommended_movie.year %}
+                            <p class="card-text"><small class="text-muted">{{ recommended_movie.year }}</small></p>
+                            {% endif %}
+                            <p class="card-text">{{ recommended_movie.description }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif request.GET.prompt %}
+    <div class="row mt-4">
+        <div class="col-md-8 offset-md-2">
+            <div class="alert alert-info">
+                No se encontraron películas que coincidan con tu descripción.
+            </div>
+        </div>
+    </div>
     {% endif %}
-{% elif prompt %}
-    <p>No se encontró una película similar.</p>
-{% endif %}
+</div>
+{% endblock %}
